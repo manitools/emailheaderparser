@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Email Header Parser</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f3ee;
+      --surface: #ffffff;
+      --border: #e3e0d6;
+      --accent: #2f4fd8;
+      --accent-soft: #e9edff;
+      --accent2: #15803d;
+      --warn: #b45309;
+      --danger: #c62828;
+      --text: #1b1f27;
+      --muted: #667085;
+      --tag-bg: #f1efe8;
+      --shadow: 0 1px 2px rgba(20,24,40,0.05), 0 6px 18px rgba(20,24,40,0.05);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: linear-gradient(180deg, #e9ecf8 0, var(--bg) 320px) no-repeat, var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2.5rem 1rem 3rem;
+    }
+
+    header { text-align: center; margin-bottom: 2rem; }
+
+    header h1 {
+      font-family: 'Space Mono', ui-monospace, monospace;
+      font-size: 1.8rem;
+      color: var(--text);
+      letter-spacing: -0.5px;
+    }
+
+    header p { color: var(--muted); margin-top: 0.45rem; font-size: 0.95rem; }
+    header p strong { color: var(--accent); }
+
+    .container { max-width: 880px; margin: 0 auto; }
+
+    .input-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.3rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+
+    .input-box label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+      font-family: 'Space Mono', ui-monospace, monospace;
+      letter-spacing: 0.5px;
+    }
+
+    textarea {
+      width: 100%;
+      background: #fbfaf7;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Space Mono', ui-monospace, monospace;
+      font-size: 0.78rem;
+      padding: 0.9rem;
+      resize: vertical;
+      min-height: 170px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: #fff; }
+    textarea::placeholder { color: #9aa1ad; }
+
+    .btn-row { display: flex; gap: 0.7rem; margin-top: 0.9rem; }
+
+    button {
+      padding: 0.55rem 1.3rem;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      font-size: 0.9rem;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+    button:active { transform: scale(0.97); }
+    button:disabled { cursor: default; opacity: 0.6; transform: none; }
+
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #2641b8; }
+
+    .btn-secondary { background: var(--surface); color: var(--muted); border-color: var(--border); }
+    .btn-secondary:hover { background: var(--tag-bg); color: var(--text); }
+
+    .btn-small { padding: 0.35rem 0.85rem; font-size: 0.8rem; }
+
+    #results { display: none; }
+
+    .section-title {
+      font-family: 'Space Mono', ui-monospace, monospace;
+      font-size: 0.76rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 0.8rem;
+    }
+
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; margin-bottom: 0.4rem;
+    }
+    .section-head .section-title { margin-bottom: 0; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 0.8rem;
+      margin-bottom: 1.7rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.95rem 1.05rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 0.3rem;
+    }
+
+    .card-value { font-size: 0.9rem; font-weight: 600; color: var(--text); word-break: break-all; }
+    .card-value.accent { color: var(--accent); }
+    .card-value.green { color: var(--accent2); }
+    .card-value.warn { color: var(--warn); }
+    .card-value.danger { color: var(--danger); }
+
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    thead tr { background: var(--tag-bg); }
+
+    th {
+      text-align: left;
+      padding: 0.7rem 1rem;
+      font-family: 'Space Mono', ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+
+    td { padding: 0.65rem 1rem; border-top: 1px solid var(--border); vertical-align: top; }
+
+    td:first-child {
+      font-family: 'Space Mono', ui-monospace, monospace;
+      font-size: 0.78rem;
+      color: var(--accent);
+      white-space: nowrap;
+      width: 220px;
+    }
+
+    td:last-child { color: var(--text); word-break: break-word; font-size: 0.83rem; }
+    tr:hover td { background: rgba(47,79,216,0.035); }
+
+    .hops { margin-bottom: 1.7rem; }
+
+    .hop {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      padding: 0.9rem 1.05rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 10px;
+      margin-bottom: 0.6rem;
+      box-shadow: var(--shadow);
+    }
+
+    .hop-num {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-family: 'Space Mono', ui-monospace, monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      border-radius: 5px;
+      padding: 0.2rem 0.5rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .hop-details { flex: 1; min-width: 0; }
+
+    .hop-server {
+      font-family: 'Space Mono', ui-monospace, monospace;
+      font-size: 0.8rem;
+      color: var(--accent2);
+      margin-bottom: 0.2rem;
+      word-break: break-all;
+    }
+
+    .hop-meta { font-size: 0.78rem; color: var(--muted); }
+
+    .hop-delay {
+      font-family: 'Space Mono', ui-monospace, monospace;
+      font-size: 0.75rem;
+      color: var(--warn);
+      background: #fdf3e3;
+      border-radius: 5px;
+      padding: 0.15rem 0.5rem;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    /* IP rows */
+    .ip-list { margin-top: 0.65rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .ip-block { background: #faf9f5; border: 1px solid var(--border); border-radius: 8px; padding: 0.55rem 0.7rem; }
+    .ip-top { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.7rem; font-size: 0.78rem; }
+    .ip-links { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.45rem; }
+    .ip-addr { font-family: 'Space Mono', ui-monospace, monospace; color: var(--warn); font-weight: 700; }
+    .ip-link {
+      color: var(--accent); text-decoration: none; font-size: 0.74rem;
+      border: 1px solid var(--border); background: var(--surface);
+      border-radius: 5px; padding: 0.1rem 0.5rem;
+    }
+    .ip-link:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .ip-skip { color: var(--muted); font-style: italic; }
+    .ip-label { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .ip-note { color: var(--muted); font-size: 0.78rem; line-height: 1.5; margin-bottom: 0.9rem; }
+
+    .ip-check {
+      padding: 0.2rem 0.65rem; font-size: 0.74rem;
+      background: var(--surface); color: var(--accent); border-color: var(--accent);
+    }
+    .ip-check:hover:not(:disabled) { background: var(--accent-soft); }
+
+    .badge {
+      display: inline-block; font-size: 0.74rem; font-weight: 600;
+      border-radius: 999px; padding: 0.15rem 0.65rem; border: 1px solid;
+    }
+    .badge-ok { background: #e8f5ec; color: var(--accent2); border-color: #b7e0c3; }
+    .badge-warn { background: #fdf3e3; color: var(--warn); border-color: #f0d3a0; }
+    .badge-bad { background: #fdecec; color: var(--danger); border-color: #f3bcbc; }
+    .badge-neutral { background: var(--tag-bg); color: var(--muted); border-color: var(--border); }
+
+    .auth-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+
+    .auth-tag {
+      padding: 0.3rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-family: 'Space Mono', ui-monospace, monospace;
+      font-weight: 700;
+      border: 1px solid;
+    }
+    .auth-pass { background: #e8f5ec; color: var(--accent2); border-color: #b7e0c3; }
+    .auth-fail { background: #fdecec; color: var(--danger); border-color: #f3bcbc; }
+    .auth-neutral { background: var(--tag-bg); color: var(--muted); border-color: var(--border); }
+
+    .error-msg {
+      background: #fdecec;
+      border: 1px solid #f3bcbc;
+      border-radius: 10px;
+      padding: 1rem;
+      color: var(--danger);
+      font-size: 0.88rem;
+    }
+
+    .tip { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 0.7rem; }
+
+    /* ---- Analyst view ---- */
+    .muted { color: var(--muted); }
+    .card-value.muted { font-weight: 500; }
+    .card-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; word-break: break-all; }
+
+    .flags { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.7rem; }
+    .flag {
+      display: flex; gap: 0.8rem; align-items: flex-start;
+      background: var(--surface); border: 1px solid var(--border); border-left-width: 4px;
+      border-radius: 10px; padding: 0.75rem 1rem; box-shadow: var(--shadow);
+    }
+    .flag-high { border-left-color: var(--danger); }
+    .flag-medium { border-left-color: #d98a1f; }
+    .flag-low { border-left-color: #9aa1ad; }
+    .sev {
+      font-family: 'Space Mono', ui-monospace, monospace; font-size: 0.66rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.6px; border-radius: 5px; padding: 0.18rem 0.5rem;
+      flex-shrink: 0; margin-top: 2px; min-width: 4.2rem; text-align: center;
+    }
+    .sev-high { background: #fdecec; color: var(--danger); }
+    .sev-medium { background: #fdf3e3; color: var(--warn); }
+    .sev-low { background: var(--tag-bg); color: var(--muted); }
+    .flag-title { font-weight: 600; font-size: 0.88rem; }
+    .flag-detail { font-size: 0.8rem; color: var(--muted); margin-top: 0.15rem; line-height: 1.45; }
+    .flags-ok {
+      background: #e8f5ec; border: 1px solid #b7e0c3; color: var(--accent2);
+      border-radius: 10px; padding: 0.85rem 1rem; font-size: 0.88rem; font-weight: 600; margin-bottom: 1.7rem;
+    }
+
+    .auth-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 0.6rem 1rem; margin-bottom: 1.7rem; box-shadow: var(--shadow);
+    }
+    .auth-line { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.8rem; padding: 0.5rem 0; }
+    .auth-line + .auth-line { border-top: 1px solid var(--border); }
+    .auth-name { font-family: 'Space Mono', ui-monospace, monospace; font-size: 0.74rem; font-weight: 700; color: var(--muted); width: 3.6rem; }
+    .auth-detail { font-size: 0.82rem; }
+    .auth-warn { background: #fdf3e3; color: var(--warn); border-color: #f0d3a0; }
+    .align { font-size: 0.74rem; font-weight: 600; margin-left: 0.3rem; }
+    .align.ok { color: var(--accent2); }
+    .align.bad { color: var(--danger); }
+    .auth-source { font-size: 0.74rem; color: var(--muted); border-top: 1px solid var(--border); padding-top: 0.55rem; margin-top: 0.2rem; }
+
+    .tls-tag { color: var(--accent2); }
+    .hop-delay.slow { background: #fdf3e3; }
+    .hop-delay.skew { background: #fdecec; color: var(--danger); }
+
+    details.all-headers summary {
+      font-family: 'Space Mono', ui-monospace, monospace; font-size: 0.76rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 0.4rem 0; margin-bottom: 0.8rem;
+      list-style: none;
+    }
+    details.all-headers summary::-webkit-details-marker { display: none; }
+    details.all-headers summary::before { content: '▸ '; }
+    details.all-headers[open] summary::before { content: '▾ '; }
+    details.all-headers summary:hover { color: var(--text); }
+
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.3rem; }
+      td:first-child { width: 140px; }
+      .section-head { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>📧 Email Header Parser</h1>
+    <p>Paste your raw email header below and click <strong>Parse Header</strong></p>
+  </header>
+
+  <div class="input-box">
+    <label for="headerInput">RAW EMAIL HEADER</label>
+    <textarea id="headerInput" placeholder="Paste your raw email header here...
+Example:
+Delivered-To: you@example.com
+Received: from mail.sender.com ...
+From: sender@example.com
+To: you@example.com
+Subject: Hello
+Date: Wed, 20 May 2026 10:00:00 +0530
+..."></textarea>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="parseHeader()">🔍 Parse Header</button>
+      <button class="btn-secondary" onclick="clearAll()">✕ Clear</button>
+    </div>
+    <p class="tip">Tip: Press <kbd style="background:var(--tag-bg);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-size:0.78rem;">Ctrl/⌘+Enter</kbd> to parse quickly</p>
+  </div>
+
+  <div id="results"></div>
+</div>
+
+<script>
+  // Allow Ctrl+Enter to parse
+  document.getElementById('headerInput').addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') parseHeader();
+  });
+
+  function clearAll() {
+    document.getElementById('headerInput').value = '';
+    document.getElementById('results').style.display = 'none';
+    document.getElementById('results').innerHTML = '';
+  }
+
+  // ---------- IP helpers ----------
+  function parseIPv4(str) {
+    const m = str.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!m) return null;
+    const o = m.slice(1).map(Number);
+    return o.every(n => n <= 255) ? o : null;
+  }
+
+  // Returns array of 8 16-bit groups, or null if invalid
+  function parseIPv6(str) {
+    str = str.split('%')[0]; // strip zone id
+    if (!/^[0-9a-fA-F:.]+$/.test(str) || !str.includes(':')) return null;
+    // embedded IPv4 tail (e.g. ::ffff:1.2.3.4)
+    const tail = str.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+    if (tail) {
+      const v4 = parseIPv4(tail[1]);
+      if (!v4) return null;
+      str = str.slice(0, -tail[1].length) +
+        ((v4[0] << 8) | v4[1]).toString(16) + ':' + ((v4[2] << 8) | v4[3]).toString(16);
+    }
+    const halves = str.split('::');
+    if (halves.length > 2) return null;
+    const head = halves[0] ? halves[0].split(':') : [];
+    const rest = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+    let groups;
+    if (halves.length === 2) {
+      const fill = 8 - head.length - rest.length;
+      if (fill < 1) return null;
+      groups = [...head, ...Array(fill).fill('0'), ...rest];
+    } else {
+      groups = head;
+    }
+    if (groups.length !== 8) return null;
+    if (!groups.every(g => /^[0-9a-fA-F]{1,4}$/.test(g))) return null;
+    return groups.map(g => parseInt(g, 16));
+  }
+
+  // Returns a label if the IPv4 is private/reserved, otherwise null (public)
+  function reservedV4(o) {
+    const [a, b, c] = o;
+    if (a === 0) return 'Unspecified / "this" network';
+    if (a === 10) return 'Private network';
+    if (a === 100 && b >= 64 && b <= 127) return 'Carrier-grade NAT';
+    if (a === 127) return 'Loopback';
+    if (a === 169 && b === 254) return 'Link-local';
+    if (a === 172 && b >= 16 && b <= 31) return 'Private network';
+    if (a === 192 && b === 0 && c === 0) return 'IETF protocol range';
+    if (a === 192 && b === 0 && c === 2) return 'Documentation range';
+    if (a === 192 && b === 168) return 'Private network';
+    if (a === 198 && (b === 18 || b === 19)) return 'Benchmarking range';
+    if (a === 198 && b === 51 && c === 100) return 'Documentation range';
+    if (a === 203 && b === 0 && c === 113) return 'Documentation range';
+    if (a >= 224 && a <= 239) return 'Multicast';
+    if (a >= 240) return 'Reserved';
+    return null;
+  }
+
+  function reservedV6(g) {
+    if (g.every(x => x === 0)) return 'Unspecified';
+    if (g.slice(0, 7).every(x => x === 0) && g[7] === 1) return 'Loopback';
+    // IPv4-mapped (::ffff:a.b.c.d) -> judge by embedded IPv4
+    if (g.slice(0, 5).every(x => x === 0) && g[5] === 0xffff) {
+      const v4 = [g[6] >> 8, g[6] & 255, g[7] >> 8, g[7] & 255];
+      return reservedV4(v4);
+    }
+    if ((g[0] & 0xffc0) === 0xfe80) return 'Link-local';
+    if ((g[0] & 0xfe00) === 0xfc00) return 'Unique local (private)';
+    if ((g[0] & 0xff00) === 0xff00) return 'Multicast';
+    if (g[0] === 0x2001 && g[1] === 0x0db8) return 'Documentation range';
+    return null;
+  }
+
+  // Classify a candidate string. Returns null if not an IP,
+  // else { ip, skip } where skip is a label for private/reserved or null for public.
+  function classifyIP(str) {
+    const v4 = parseIPv4(str);
+    if (v4) return { ip: v4.join('.'), skip: reservedV4(v4) };
+    const v6 = parseIPv6(str);
+    if (v6) return { ip: str.split('%')[0].toLowerCase(), skip: reservedV6(v6) };
+    return null;
+  }
+
+  // Pull IPs out of free text. Handles [1.2.3.4], (1.2.3.4), bare 1.2.3.4,
+  // [IPv6:2607::1], (2603:10a6::1), ip=1.2.3.4, ::ffff:1.2.3.4 and so on.
+  // Every candidate is validated, so times like 10:00:05 are rejected.
+  function extractIPs(text) {
+    const cleaned = String(text).replace(/IPv6:/gi, ' ');
+    const hits = [];
+    let m;
+    const v4 = /(^|[^\w.:-])(\d{1,3}(?:\.\d{1,3}){3})(?![\w-]|\.\d)/g;
+    while ((m = v4.exec(cleaned)) !== null) hits.push({ idx: m.index + m[1].length, tok: m[2] });
+    const v6 = /(^|[^\w:.-])([0-9a-fA-F:]*:[0-9a-fA-F:.]*[0-9a-fA-F:])/g;
+    while ((m = v6.exec(cleaned)) !== null) hits.push({ idx: m.index + m[1].length, tok: m[2] });
+    hits.sort((x, y) => x.idx - y.idx);
+    const found = [];
+    const seen = new Set();
+    for (const h of hits) {
+      const c = classifyIP(h.tok);
+      if (c && !seen.has(c.ip)) { seen.add(c.ip); found.push(c); }
+    }
+    return found;
+  }
+
+  // ---------- Blocklist (DNSBL) checks over DNS-over-HTTPS ----------
+  // Edit this list to add/remove blocklists. Zones that refuse public resolvers
+  // (e.g. Spamhaus) are intentionally left out; they would look "clean" or error out.
+  const DNSBLS = [
+    { zone: 'bl.spamcop.net',       name: 'SpamCop' },
+    { zone: 'psbl.surriel.com',     name: 'PSBL' },
+    { zone: 'dnsbl.dronebl.org',    name: 'DroneBL' },
+    { zone: 'all.s5h.net',          name: 's5h.net' },
+    { zone: 'ix.dnsbl.manitu.net',  name: 'manitu' }
+  ];
+  const DOH_ENDPOINTS = [
+    'https://cloudflare-dns.com/dns-query',
+    'https://dns.google/resolve'
+  ];
+  const ipCache = new Map();
+
+  async function dohQuery(name) {
+    let lastErr;
+    for (const base of DOH_ENDPOINTS) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000);
+      try {
+        const res = await fetch(`${base}?name=${encodeURIComponent(name)}&type=A`, {
+          headers: { accept: 'application/dns-json' },
+          signal: ctrl.signal
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return await res.json();
+      } catch (e) {
+        lastErr = e;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    throw lastErr;
+  }
+
+  async function checkList(ipv4, bl) {
+    const rev = ipv4.split('.').reverse().join('.');
+    try {
+      const data = await dohQuery(`${rev}.${bl.zone}`);
+      if (data.Status === 3) return { bl, state: 'clean' };          // NXDOMAIN = not listed
+      if (data.Status !== 0) return { bl, state: 'error' };           // SERVFAIL, REFUSED, ...
+      const answers = (data.Answer || []).filter(x => x.type === 1).map(x => x.data);
+      if (!answers.length) return { bl, state: 'clean' };
+      if (answers.some(x => x.startsWith('127.255.255.'))) return { bl, state: 'error' }; // resolver refused
+      if (answers.some(x => x.startsWith('127.'))) return { bl, state: 'listed', codes: answers };
+      return { bl, state: 'error' };
+    } catch (e) {
+      return { bl, state: 'error' };
+    }
+  }
+
+  function checkIP(ip) {
+    if (!ipCache.has(ip)) {
+      ipCache.set(ip, Promise.all(DNSBLS.map(bl => checkList(ip, bl))));
+    }
+    return ipCache.get(ip);
+  }
+
+  function statusHTML(results) {
+    const total = results.length;
+    const listed = results.filter(r => r.state === 'listed');
+    const errors = results.filter(r => r.state === 'error').length;
+    const checked = total - errors;
+    const extra = errors ? ` · ${errors} unavailable` : '';
+    const tip = escHtml(results.map(r =>
+      `${r.bl.name}: ${r.state}${r.codes ? ' (' + r.codes.join(', ') + ')' : ''}`).join('\n'));
+    if (checked === 0) {
+      return `<span class="badge badge-neutral" title="${tip}">Couldn’t reach any blocklist</span>`;
+    }
+    if (listed.length === 0) {
+      return `<span class="badge badge-ok" title="${tip}">✓ Not listed (0/${checked})${extra}</span>`;
+    }
+    const names = listed.map(r => escHtml(r.bl.name)).join(', ');
+    const cls = listed.length === 1 ? 'badge-warn' : 'badge-bad';
+    const icon = listed.length === 1 ? '⚠' : '✖';
+    return `<span class="badge ${cls}" title="${tip}">${icon} Listed on ${listed.length}/${checked}: ${names}${extra}</span>`;
+  }
+
+  function statusEls(ip) {
+    return [...document.querySelectorAll('.ip-status')].filter(el => el.dataset.ip === ip);
+  }
+  function btnEls(ip) {
+    return [...document.querySelectorAll('.ip-check')].filter(el => el.dataset.ip === ip);
+  }
+
+  async function runCheck(ip) {
+    btnEls(ip).forEach(b => { b.disabled = true; b.textContent = 'Checking…'; });
+    statusEls(ip).forEach(el => { el.innerHTML = ''; });
+    const results = await checkIP(ip);
+    btnEls(ip).forEach(b => { b.disabled = false; b.textContent = 'Re-check'; });
+    statusEls(ip).forEach(el => { el.innerHTML = statusHTML(results); });
+    // allow a fresh lookup next time the person presses Re-check
+    ipCache.delete(ip);
+  }
+
+  function checkAllIPs() {
+    const ips = new Set([...document.querySelectorAll('.ip-check')]
+      .filter(b => !b.disabled).map(b => b.dataset.ip));
+    ips.forEach(ip => runCheck(ip));
+  }
+
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.ip-check');
+    if (btn && !btn.disabled) runCheck(btn.dataset.ip);
+    if (e.target.closest('#checkAllBtn')) checkAllIPs();
+  });
+
+  function ipLinks(ip) {
+    const e = encodeURIComponent(ip);
+    return [
+      ['AbuseIPDB', `https://www.abuseipdb.com/check/${e}`],
+      ['VirusTotal', `https://www.virustotal.com/gui/ip-address/${e}`],
+      ['Talos', `https://talosintelligence.com/reputation_center/lookup?search=${e}`],
+      ['MXToolbox', `https://mxtoolbox.com/SuperTool.aspx?action=blacklist%3a${e}&run=toolpage`],
+      ['IPinfo', `https://ipinfo.io/${e}`],
+      ['Shodan', `https://www.shodan.io/host/${e}`]
+    ];
+  }
+
+  function ipRowHTML(c, label) {
+    const lab = label ? `<span class="ip-label">${escHtml(label)}</span>` : '';
+    if (c.skip) {
+      return `<div class="ip-block"><div class="ip-top">${lab}<span class="ip-addr">${escHtml(c.ip)}</span><span class="ip-skip">${escHtml(c.skip)} · skipped</span></div></div>`;
+    }
+    const isV4 = !!parseIPv4(c.ip);
+    const check = isV4
+      ? `<button class="ip-check" data-ip="${escHtml(c.ip)}">Check blocklists</button><span class="ip-status" data-ip="${escHtml(c.ip)}"></span>`
+      : `<span class="ip-skip">Blocklist check supports IPv4 only</span>`;
+    const links = ipLinks(c.ip)
+      .map(([name, url]) => `<a class="ip-link" href="${url}" target="_blank" rel="noopener noreferrer">${name} ↗</a>`)
+      .join('');
+    return `<div class="ip-block"><div class="ip-top">${lab}<span class="ip-addr">${escHtml(c.ip)}</span>${check}</div><div class="ip-links">${links}</div></div>`;
+  }
+
+  // ---------- Analysis helpers ----------
+  function decodeMimeWords(str) {
+    if (!str || str === '—') return str;
+    const s = String(str).replace(/(\?=)\s+(?==\?)/g, '$1');
+    return s.replace(/=\?([\w-]+)(?:\*[\w-]+)?\?([bBqQ])\?([^?]*)\?=/g, (all, charset, enc, text) => {
+      try {
+        let bytes;
+        if (enc.toUpperCase() === 'B') {
+          const bin = atob(text.replace(/\s/g, ''));
+          bytes = Uint8Array.from(bin, ch => ch.charCodeAt(0));
+        } else {
+          const q = text.replace(/_/g, ' ');
+          const out = [];
+          for (let i = 0; i < q.length; i++) {
+            if (q[i] === '=' && /^[0-9a-fA-F]{2}$/.test(q.substr(i + 1, 2))) {
+              out.push(parseInt(q.substr(i + 1, 2), 16));
+              i += 2;
+            } else {
+              out.push(q.charCodeAt(i) & 255);
+            }
+          }
+          bytes = Uint8Array.from(out);
+        }
+        try { return new TextDecoder(charset).decode(bytes); }
+        catch (e) { return new TextDecoder('utf-8').decode(bytes); }
+      } catch (e) { return all; }
+    });
+  }
+
+  // First address in a header value -> { name, email, domain }
+  function parseAddress(str) {
+    if (!str || str === '—') return null;
+    const decoded = decodeMimeWords(str).trim();
+    let name = '', addr = '';
+    const quoted = decoded.match(/^"((?:[^"\\]|\\.)*)"\s*<([^<>]*)>/);
+    const angle = decoded.match(/^(.*?)\s*<([^<>]*)>/);
+    if (quoted) { name = quoted[1]; addr = quoted[2].trim(); }
+    else if (angle) { name = angle[1].replace(/^"|"$/g, '').trim(); addr = angle[2].trim(); }
+    else {
+      const m = decoded.match(/[^\s<>"',;()\[\]]+@[^\s<>"',;()\[\]]+/);
+      addr = m ? m[0] : '';
+      name = m ? decoded.replace(m[0], '').replace(/[<>"]/g, '').trim() : decoded;
+    }
+    const dm = addr.match(/@([^@\s>]+)$/);
+    return { name, email: addr, domain: dm ? dm[1].toLowerCase().replace(/\.+$/, '') : '' };
+  }
+
+  // Approximate organizational domain (no public-suffix list; good enough for alignment hints)
+  function orgDomain(d) {
+    if (!d) return '';
+    const p = d.toLowerCase().split('.').filter(Boolean);
+    if (p.length <= 2) return p.join('.');
+    const sld = ['co', 'com', 'org', 'net', 'gov', 'edu', 'ac', 'or', 'ne', 'go'];
+    if (p[p.length - 1].length === 2 && sld.includes(p[p.length - 2])) return p.slice(-3).join('.');
+    return p.slice(-2).join('.');
+  }
+  const sameOrg = (a, b) => !!a && !!b && orgDomain(a) === orgDomain(b);
+
+  function parseMailDate(s) {
+    if (!s || s === '—') return NaN;
+    return new Date(s.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim()).getTime();
+  }
+
+  function fmtDuration(sec) {
+    sec = Math.round(Math.abs(sec));
+    if (sec < 60) return sec + 's';
+    if (sec < 3600) return Math.floor(sec / 60) + 'm ' + (sec % 60) + 's';
+    if (sec < 86400) return Math.floor(sec / 3600) + 'h ' + Math.floor((sec % 3600) / 60) + 'm';
+    return Math.floor(sec / 86400) + 'd ' + Math.floor((sec % 86400) / 3600) + 'h';
+  }
+
+  function parseAuth(headers) {
+    const auth = (headers['authentication-results'] || [])[0];
+    const arc = (headers['arc-authentication-results'] || [])[0];
+    const val = auth || arc || '';
+    const out = { present: !!val, source: auth ? 'Authentication-Results' : (arc ? 'ARC-Authentication-Results' : ''), spf: null, dkim: [], dmarc: null };
+    if (val) {
+      for (const seg of val.split(';')) {
+        const m = seg.match(/^\s*(spf|dkim|dmarc)\s*=\s*(\w+)/i);
+        if (!m) continue;
+        const method = m[1].toLowerCase();
+        const result = m[2].toLowerCase();
+        const props = {};
+        seg.replace(/([\w.-]+)=("[^"]*"|[^\s;()]+)/g, (all, k, v) => { props[k.toLowerCase()] = v.replace(/^"|"$/g, ''); return all; });
+        if (method === 'spf' && !out.spf) {
+          const mf = props['smtp.mailfrom'] || props['smtp.helo'] || '';
+          out.spf = { result, domain: (mf.includes('@') ? mf.split('@').pop() : mf).toLowerCase() };
+        } else if (method === 'dkim') {
+          const d = (props['header.d'] || props['header.i'] || '').replace(/^.*@/, '').toLowerCase();
+          out.dkim.push({ result, d, s: props['header.s'] || '' });
+        } else if (method === 'dmarc' && !out.dmarc) {
+          out.dmarc = { result, from: (props['header.from'] || '').toLowerCase(), policy: props['p'] || '' };
+        }
+      }
+    }
+    // Fallback for SPF: Received-SPF header
+    const rspf = (headers['received-spf'] || [])[0];
+    out.receivedSpf = !!rspf;
+    if (!out.spf && rspf) {
+      const r = rspf.match(/^\s*(\w+)/);
+      const ef = rspf.match(/(?:envelope-from|smtp\.mailfrom)=<?([^;\s>]+)/i);
+      out.spf = { result: r ? r[1].toLowerCase() : 'unknown', domain: ef ? ef[1].split('@').pop().toLowerCase() : '', fallback: true };
+    }
+    // DKIM signatures present in the header (not verified here)
+    out.signatures = (headers['dkim-signature'] || []).map(v => ({
+      d: ((v.match(/\bd=([^;\s]+)/) || [])[1] || '').toLowerCase(),
+      s: (v.match(/\bs=([^;\s]+)/) || [])[1] || ''
+    }));
+    return out;
+  }
+
+  function resultChip(result) {
+    if (!result) return '<span class="auth-tag auth-neutral">not found</span>';
+    const r = result.toLowerCase();
+    const cls = r === 'pass' ? 'auth-pass'
+      : (r === 'fail' || r === 'permerror') ? 'auth-fail'
+      : (r === 'softfail' || r === 'temperror' || r === 'policy') ? 'auth-warn' : 'auth-neutral';
+    return `<span class="auth-tag ${cls}">${escHtml(r)}</span>`;
+  }
+
+  function alignBadge(domain, fromDomain) {
+    if (!domain || !fromDomain) return '';
+    return sameOrg(domain, fromDomain)
+      ? '<span class="align ok">✓ aligned with From</span>'
+      : '<span class="align bad">✗ not aligned with From</span>';
+  }
+
+  function parseHeader() {
+    ipCache.clear();
+    const raw = document.getElementById('headerInput').value.trim();
+    const resultsDiv = document.getElementById('results');
+
+    if (!raw) {
+      resultsDiv.style.display = 'block';
+      resultsDiv.innerHTML = '<div class="error-msg">⚠️ Please paste an email header first.</div>';
+      return;
+    }
+
+    // Header block ends at the first blank line (so a pasted full email's body is ignored)
+    const normalized = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const headerBlock = normalized.split(/\n[ \t]*\n/)[0];
+    const allLines = headerBlock.replace(/\n[ \t]+/g, ' ').split('\n');
+
+    const headers = {};
+    const headerOrder = [];
+
+    for (const line of allLines) {
+      const match = line.match(/^([A-Za-z0-9\-]+)\s*:\s*(.*)$/);
+      if (match) {
+        const key = match[1].toLowerCase();
+        const val = match[2].trim();
+        if (!headers[key]) { headers[key] = []; headerOrder.push(key); }
+        headers[key].push(val);
+      }
+    }
+
+    if (Object.keys(headers).length === 0) {
+      resultsDiv.style.display = 'block';
+      resultsDiv.innerHTML = '<div class="error-msg">⚠️ Could not detect any valid email headers. Please check your input.</div>';
+      return;
+    }
+
+    const get = (k) => (headers[k] || ['—'])[0];
+    const getAll = (k) => headers[k] || [];
+
+    // ---------- Core fields ----------
+    const fromRaw = get('from');
+    const fromAddr = parseAddress(fromRaw);
+    const rpRaw = get('return-path');
+    const rpAddr = rpRaw === '—' ? null : parseAddress(rpRaw);
+    const replyAddr = parseAddress(get('reply-to'));
+    const subject = decodeMimeWords(get('subject'));
+    const toDecoded = decodeMimeWords(get('to'));
+    const ccDecoded = decodeMimeWords(get('cc'));
+    const date = get('date');
+    const messageId = get('message-id');
+    const midDomain = ((messageId.match(/@([^>\s]+)/) || [])[1] || '').toLowerCase();
+    const xMailer = get('x-mailer') !== '—' ? get('x-mailer') : (get('user-agent') !== '—' ? get('user-agent') : '—');
+    const contentType = get('content-type');
+    const hasUnsub = get('list-unsubscribe') !== '—';
+    const fromDomain = fromAddr ? fromAddr.domain : '';
+
+    // ---------- Received hops ----------
+    const receivedLines = getAll('received');
+    const hops = receivedLines.map((line, i) => {
+      const fromMatch = line.match(/\bfrom\s+([^\s]+)/i);
+      const rdnsMatch = line.match(/\bfrom\s+\S+\s*\((?:HELO\s+|EHLO\s+|helo=)?([^\s)\[]+)/i);
+      const byMatch = line.match(/\bby\s+([^\s;]+)/i);
+      const dateMatch = line.match(/;\s*(.+)$/i);
+      const fromPart = line.split(/\sby\s/i)[0];
+      const tlsVer = line.match(/\b(?:version=|using\s+)(TLS[\w._]+)/i);
+      const tls = tlsVer ? tlsVer[1].replace(/_/g, '.') : (/\bwith\s+\w*ESMTPS\w*/i.test(line) ? 'TLS' : null);
+      const dateStr = dateMatch ? dateMatch[1].trim() : '—';
+      return {
+        num: receivedLines.length - i,
+        from: (fromMatch && !/^unknown$/i.test(fromMatch[1])) ? fromMatch[1] : ((rdnsMatch && rdnsMatch[1]) ? rdnsMatch[1].replace(/\.$/, '') : (fromMatch ? fromMatch[1] : '—')),
+        rdns: rdnsMatch ? rdnsMatch[1].replace(/\.$/, '') : '',
+        by: byMatch ? byMatch[1] : '—',
+        date: dateStr,
+        ts: parseMailDate(dateStr),
+        tls,
+        ips: extractIPs(fromPart),
+        raw: line
+      };
+    }).reverse();
+
+    // Hop timing
+    let skewCount = 0, slowCount = 0;
+    hops.forEach((h, i) => {
+      h.delta = null;
+      if (i > 0 && !isNaN(h.ts) && !isNaN(hops[i - 1].ts)) {
+        h.delta = (h.ts - hops[i - 1].ts) / 1000;
+        if (h.delta < 0) skewCount++;
+        else if (h.delta > 3600) slowCount++;
+      }
+    });
+    const validTs = hops.map(h => h.ts).filter(t => !isNaN(t));
+    const totalSec = validTs.length >= 2 ? (validTs[validTs.length - 1] - validTs[0]) / 1000 : null;
+    const tlsHops = hops.filter(h => h.tls).length;
+
+    // Earliest public IP in the chain
+    let origin = null;
+    outer: for (const h of hops) {
+      for (const c of h.ips) { if (!c.skip) { origin = { c, hop: h }; break outer; } }
+    }
+
+    // ---------- Authentication ----------
+    const auth = parseAuth(headers);
+    const spfOK = auth.spf && auth.spf.result === 'pass';
+    const spfAligned = auth.spf && sameOrg(auth.spf.domain, fromDomain);
+    const dkimAlignedPass = auth.dkim.some(r => r.result === 'pass' && sameOrg(r.d, fromDomain));
+    const dmarcPass = auth.dmarc && auth.dmarc.result === 'pass';
+
+    // ---------- Spam verdicts ----------
+    // Each source gives a plain-word verdict plus supporting detail; the worst one headlines the card.
+    const spamSources = [];
+    const spamAdd = (word, detail, tone) => spamSources.push({ word, detail, tone });
+    const spamStatus = get('x-spam-status');
+    const spamFlag = get('x-spam-flag');
+    const spamScoreH = get('x-spam-score');
+    const scl = get('x-ms-exchange-organization-scl');
+    const forefront = get('x-forefront-antispam-report');
+    const forefrontScl = (forefront.match(/\bSCL:\s*(-?\d+)/i) || [])[1];
+    const sfv = ((forefront.match(/\bSFV:\s*([A-Z]+)/i) || [])[1] || '').toUpperCase();
+
+    if (spamStatus !== '—') {
+      const yes = /^yes/i.test(spamStatus);
+      const sc = (spamStatus.match(/score=(-?[\d.]+)/i) || [])[1];
+      spamAdd(yes ? 'Spam' : 'Not spam', 'X-Spam-Status' + (sc ? ', score ' + sc : ''), yes ? 'danger' : 'green');
+    } else if (spamFlag !== '—') {
+      const yes = /^yes/i.test(spamFlag);
+      spamAdd(yes ? 'Spam' : 'Not spam', 'X-Spam-Flag', yes ? 'danger' : 'green');
+    } else if (spamScoreH !== '—') {
+      const n = parseFloat(spamScoreH);
+      if (!isNaN(n)) spamAdd(n >= 5 ? 'Likely spam' : 'Likely not spam', 'X-Spam-Score ' + spamScoreH, n >= 5 ? 'danger' : 'green');
+    }
+
+    const sclVal = scl !== '—' ? scl : forefrontScl;
+    if (sclVal !== undefined) {
+      const n = parseInt(sclVal, 10);
+      if (!isNaN(n)) {
+        let word, tone;
+        if (n < 0) { word = 'Trusted (filtering skipped)'; tone = 'green'; }
+        else if (n <= 1) { word = 'Not spam'; tone = 'green'; }
+        else if (n <= 4) { word = 'Uncertain'; tone = 'warn'; }
+        else if (n <= 6) { word = 'Spam'; tone = 'danger'; }
+        else { word = 'High-confidence spam'; tone = 'danger'; }
+        spamAdd(word, 'Microsoft SCL ' + n, tone);
+      }
+    }
+    const sfvMap = {
+      NSPM: ['Not spam', 'green'], SPM: ['Spam', 'danger'], HSPM: ['High-confidence spam', 'danger'],
+      PHSH: ['Phishing', 'danger'], BULK: ['Bulk mail', 'warn'], SKB: ['Blocked sender', 'danger'],
+      SKN: ['Trusted (filtering skipped)', 'green'], SKI: ['Trusted (filtering skipped)', 'green'], SKA: ['Trusted (filtering skipped)', 'green']
+    };
+    if (sfv && sfvMap[sfv]) spamAdd(sfvMap[sfv][0], 'Microsoft SFV ' + sfv, sfvMap[sfv][1]);
+
+    const toneRank = { green: 0, warn: 1, danger: 2 };
+    const worst = spamSources.slice().sort((a, b) => toneRank[b.tone] - toneRank[a.tone])[0];
+    const spamWord = worst ? worst.word : '';
+    const spamTone = worst ? worst.tone : 'green';
+    const spamDetail = spamSources.map(x => x.detail).join(' · ');
+
+    // ---------- Red flags ----------
+    const flags = [];
+    const addFlag = (sev, title, detail) => flags.push({ sev, title, detail });
+
+    if (!fromAddr) addFlag('medium', 'No From header', 'The header has no readable From address.');
+    if (messageId === '—') addFlag('low', 'No Message-ID', 'Legitimate mail servers almost always add a Message-ID.');
+    if (hops.length === 0) addFlag('low', 'No Received headers', 'The routing path can’t be analysed without them.');
+
+    if (fromAddr && fromAddr.name) {
+      const embedded = fromAddr.name.match(/[\w.+-]+@([\w-]+(?:\.[\w-]+)+)/);
+      if (embedded && !sameOrg(embedded[1], fromDomain)) {
+        addFlag('high', 'Display name impersonates another address',
+          `The display name contains “${embedded[0]}” but the real sender is ${fromAddr.email}.`);
+      }
+    }
+    if (rpAddr && rpAddr.domain && fromDomain && !sameOrg(rpAddr.domain, fromDomain)) {
+      addFlag('medium', 'Return-Path domain differs from From',
+        `From is ${fromDomain} but the bounce address (Return-Path) is ${rpAddr.domain}. Common with mailing services; more suspicious if authentication doesn’t align.`);
+    }
+    if (replyAddr && replyAddr.domain && fromDomain && !sameOrg(replyAddr.domain, fromDomain)) {
+      addFlag('medium', 'Reply-To domain differs from From',
+        `Replies would go to ${replyAddr.email || replyAddr.domain}, not ${fromDomain}.`);
+    }
+
+    if (!auth.present && !auth.spf) {
+      addFlag('low', 'No authentication results in header',
+        'There is no Authentication-Results or Received-SPF header, so SPF/DKIM/DMARC can’t be checked from this data.');
+    } else {
+      if (auth.dmarc && auth.dmarc.result === 'fail') addFlag('high', 'DMARC failed', 'The From domain’s DMARC policy was not satisfied.');
+      if (auth.spf) {
+        const r = auth.spf.result;
+        if (r === 'fail') addFlag('high', 'SPF failed', 'The sending server isn’t authorised by the envelope domain’s SPF record.');
+        else if (r === 'softfail') addFlag('medium', 'SPF soft-fail', 'The sending server is probably not authorised by the envelope domain.');
+        else if (r === 'permerror' || r === 'temperror') addFlag('low', 'SPF error', `SPF returned ${r}.`);
+        else if (r === 'none' || r === 'neutral') addFlag('low', 'SPF gives no assurance', `SPF result was “${r}”.`);
+      }
+      if (auth.dkim.some(r => r.result === 'fail')) addFlag('medium', 'DKIM signature failed', 'At least one DKIM signature did not verify, which can mean the message was altered.');
+      if (auth.present && auth.dkim.length === 0 && auth.signatures.length === 0) addFlag('low', 'No DKIM signature', 'The message isn’t DKIM-signed.');
+      if (fromDomain && !dmarcPass && (auth.spf || auth.dkim.length) && !(spfOK && spfAligned) && !dkimAlignedPass) {
+        addFlag('high', 'From domain isn’t authenticated',
+          `Neither SPF nor DKIM passed with a domain matching ${fromDomain}, and DMARC didn’t pass, so the From address could be spoofed.`);
+      }
+    }
+    if (fromDomain && midDomain && !sameOrg(midDomain, fromDomain)) {
+      addFlag('low', 'Message-ID domain differs from From', `Message-ID is from ${midDomain}; many mailing services do this, but spoofed mail often does too.`);
+    }
+    const dateTs = parseMailDate(date);
+    if (!isNaN(dateTs) && validTs.length) {
+      const gap = Math.abs(dateTs - validTs[0]) / 1000;
+      if (gap > 86400) addFlag('medium', 'Date header doesn’t match delivery path',
+        `The Date header differs from the first hop’s timestamp by ${fmtDuration(gap)}.`);
+    }
+    if (skewCount) addFlag('low', 'Timestamps go backwards', `${skewCount} hop(s) are timestamped earlier than the previous hop. This points to clock skew or tampering.`);
+    if (slowCount) addFlag('low', 'Long delay between hops', `${slowCount} hop(s) took over an hour.`);
+    if (spamTone === 'danger') addFlag('medium', 'Marked as spam by a filter', spamWord + ' (' + spamDetail + ')');
+
+    const sevOrder = { high: 0, medium: 1, low: 2 };
+    flags.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev]);
+
+    const flagsHTML = flags.length === 0
+      ? '<div class="flags-ok">✓ No obvious red flags found. This isn’t proof the email is legitimate.</div>'
+      : `<div class="flags">${flags.map(f => `
+          <div class="flag flag-${f.sev}">
+            <span class="sev sev-${f.sev}">${f.sev}</span>
+            <div><div class="flag-title">${escHtml(f.title)}</div><div class="flag-detail">${escHtml(f.detail)}</div></div>
+          </div>`).join('')}</div>`;
+
+    // ---------- Triage cards ----------
+    const addrCard = (label, a, rawVal, extraClass) => {
+      if (!a) return `<div class="card"><div class="card-label">${label}</div><div class="card-value muted">—</div></div>`;
+      const main = a.name ? escHtml(a.name) : escHtml(a.email || rawVal);
+      const sub = a.name ? `<div class="card-sub">${escHtml(a.email)}</div>` : '';
+      return `<div class="card"><div class="card-label">${label}</div><div class="card-value ${extraClass || ''}">${main}</div>${sub}</div>`;
+    };
+    const card = (label, value, cls, sub) =>
+      `<div class="card"><div class="card-label">${label}</div><div class="card-value ${cls || ''}">${value}</div>${sub ? `<div class="card-sub">${sub}</div>` : ''}</div>`;
+
+    const rpCard = rpRaw === '—'
+      ? card('Return-Path', '—', 'muted')
+      : (rpAddr && rpAddr.email ? card('Return-Path', escHtml(rpAddr.email)) : card('Return-Path', '&lt;&gt;', '', 'null sender (bounce message)'));
+
+    const cards = [
+      addrCard('From', fromAddr, fromRaw),
+      rpCard,
+      replyAddr ? addrCard('Reply-To', replyAddr, '', 'warn') : '',
+      card('Subject', escHtml(subject), 'accent'),
+      card('To', escHtml(toDecoded), '', ccDecoded && ccDecoded !== '—' ? 'Cc: ' + escHtml(ccDecoded) : ''),
+      card('Date', escHtml(date)),
+      origin
+        ? card('Originating IP', `<span style="font-family:'Space Mono',monospace">${escHtml(origin.c.ip)}</span>`, 'warn',
+            `Hop ${origin.hop.num} · HELO ${escHtml(origin.hop.from)}`)
+        : card('Originating IP', '—', 'muted', 'No public IP found in the Received chain'),
+      card('Message-ID', `<span style="font-size:0.75rem;font-family:'Space Mono',monospace">${escHtml(messageId)}</span>`),
+      card('Transit', `${hops.length} hop${hops.length === 1 ? '' : 's'}${totalSec !== null ? ' · ' + (totalSec < 0 ? '⚠ −' : '') + fmtDuration(totalSec) : ''}`),
+      hops.length ? card('TLS in transit', `${tlsHops} of ${hops.length} hops`, tlsHops === hops.length ? 'green' : (tlsHops === 0 ? 'warn' : ''), 'Based on what each Received line states') : '',
+      spamSources.length ? card('Spam verdict', escHtml(spamWord), spamTone, escHtml(spamDetail)) : '',
+      xMailer !== '—' ? card('Mailer / Client', escHtml(xMailer), 'green') : '',
+      card('List-Unsubscribe', hasUnsub ? 'Present' : 'Not present', hasUnsub ? '' : 'muted', hasUnsub ? 'Typical of bulk or marketing mail' : ''),
+      contentType !== '—' ? card('Content-Type', escHtml(contentType.split(';')[0])) : ''
+    ].join('');
+
+    // ---------- Authentication section ----------
+    const spfLine = auth.spf
+      ? `${resultChip(auth.spf.result)}<span class="auth-detail">${auth.spf.domain ? 'envelope domain <b>' + escHtml(auth.spf.domain) + '</b> ' + alignBadge(auth.spf.domain, fromDomain) : 'no domain reported'}${auth.spf.fallback ? ' <span class="muted">(from Received-SPF)</span>' : ''}</span>`
+      : `${resultChip(null)}`;
+    const dkimLines = auth.dkim.length
+      ? auth.dkim.map(r => `<div class="auth-line"><span class="auth-name">DKIM</span>${resultChip(r.result)}<span class="auth-detail">${r.d ? 'signed by <b>' + escHtml(r.d) + '</b>' : 'domain not reported'}${r.s ? ' · selector ' + escHtml(r.s) : ''} ${alignBadge(r.d, fromDomain)}</span></div>`).join('')
+      : `<div class="auth-line"><span class="auth-name">DKIM</span>${resultChip(null)}<span class="auth-detail">${auth.signatures.length ? 'Signature present for <b>' + escHtml(auth.signatures.map(x => x.d).filter(Boolean).join(', ')) + '</b> but no verification result in this header' : ''}</span></div>`;
+    const dmarcLine = auth.dmarc
+      ? `${resultChip(auth.dmarc.result)}<span class="auth-detail">${auth.dmarc.from ? 'From domain <b>' + escHtml(auth.dmarc.from) + '</b>' : ''}${auth.dmarc.policy ? ' · policy p=' + escHtml(auth.dmarc.policy.toLowerCase()) : ''}</span>`
+      : `${resultChip(null)}`;
+
+    const authHTML = `
+      <div class="auth-box">
+        <div class="auth-line"><span class="auth-name">SPF</span>${spfLine}</div>
+        ${dkimLines}
+        <div class="auth-line"><span class="auth-name">DMARC</span>${dmarcLine}</div>
+        <p class="auth-source">${auth.source ? 'Source: top-most ' + auth.source + ' header. ' : ''}Only results added by your own mail provider are trustworthy; the sender can forge any others.</p>
+      </div>`;
+
+    // ---------- Other IPs ----------
+    const hopIPSet = new Set(hops.flatMap(h => h.ips.map(x => x.ip)));
+    const extraIPs = [];
+    const extraSeen = new Set(hopIPSet);
+    function addExtra(label, c) {
+      if (c && !extraSeen.has(c.ip)) { extraSeen.add(c.ip); extraIPs.push({ label, c }); }
+    }
+    ['x-originating-ip', 'x-sender-ip', 'x-mailgun-sending-ip', 'x-forwarded-for', 'x-real-ip'].forEach(k => {
+      getAll(k).forEach(v => extractIPs(v).forEach(c => addExtra(k, c)));
+    });
+    const labelled = /(?:client-ip|sender ip is|remote-ip|\bcip)\s*[=:]?\s*([0-9a-fA-F:.]+)/gi;
+    ['received-spf', 'authentication-results', 'x-forefront-antispam-report'].forEach(k => {
+      getAll(k).forEach(v => {
+        let m;
+        labelled.lastIndex = 0;
+        while ((m = labelled.exec(v)) !== null) {
+          extractIPs(m[1].replace(/[.;:]+$/, '')).forEach(c => addExtra(k, c));
+        }
+      });
+    });
+    const extraHTML = extraIPs.length === 0 ? '' : `
+      <p class="section-title">📍 Other IPs Found in Headers</p>
+      <div class="ip-list" style="margin-bottom:1.7rem">${extraIPs.map(x => ipRowHTML(x.c, x.label)).join('')}</div>
+    `;
+
+    // ---------- Hops ----------
+    const hopHTML = hops.length === 0 ? '<p style="color:var(--muted);font-size:0.85rem;">No Received headers found.</p>' :
+      hops.map(h => {
+        let delay = '';
+        if (h.delta !== null) {
+          if (h.delta < 0) delay = `<div class="hop-delay skew" title="Timestamp is earlier than the previous hop">⚠ −${fmtDuration(h.delta)}</div>`;
+          else delay = `<div class="hop-delay${h.delta > 600 ? ' slow' : ''}">+${fmtDuration(h.delta)}</div>`;
+        }
+        return `
+          <div class="hop">
+            <div class="hop-num">HOP ${h.num}</div>
+            <div class="hop-details">
+              <div class="hop-server">From: ${escHtml(h.from)}${h.rdns && h.rdns !== h.from ? ` <span class="muted">(${escHtml(h.rdns)})</span>` : ''}</div>
+              <div class="hop-server" style="color:var(--accent)">By: ${escHtml(h.by)}</div>
+              <div class="hop-meta">${escHtml(h.date)}${h.tls ? ` · <span class="tls-tag">🔒 ${escHtml(h.tls)}</span>` : ''}</div>
+              ${h.ips.length ? `<div class="ip-list">${h.ips.map(c => ipRowHTML(c)).join('')}</div>` : ''}
+            </div>
+            ${delay}
+          </div>
+        `;
+      }).join('');
+
+    const tableRows = headerOrder.map(key => headers[key].map(v => `
+        <tr><td>${escHtml(key)}</td><td>${escHtml(v)}</td></tr>`).join('')).join('');
+
+    const showCheckAll = hops.some(h => h.ips.some(x => !x.skip && parseIPv4(x.ip))) || extraIPs.some(x => !x.c.skip && parseIPv4(x.c.ip));
+
+    // ---------- Output ----------
+    resultsDiv.style.display = 'block';
+    resultsDiv.innerHTML = `
+      <p class="section-title">🚩 Red Flags (${flags.length})</p>
+      ${flagsHTML}
+
+      <p class="section-title">📋 Triage Summary</p>
+      <div class="cards">${cards}</div>
+
+      <p class="section-title">🛡️ Authentication</p>
+      ${authHTML}
+
+      ${hops.length > 0 ? `
+        <div class="section-head">
+          <p class="section-title">🛤️ Email Routing Path (${hops.length} hops)</p>
+          ${showCheckAll ? '<button id="checkAllBtn" class="btn-primary btn-small">Check all public IPs</button>' : ''}
+        </div>
+        <p class="ip-note">Blocklist checks are opt-in: pressing a button sends that IP to Cloudflare/Google DNS and the blocklist operators. Private and reserved addresses are skipped automatically. A listing is a signal, not proof, since shared hosts and mail providers get listed too. Hops added by servers outside your control can be forged, so trust the ones recorded by your own provider most.</p>
+        <div class="hops">${hopHTML}</div>` : ''}
+
+      ${extraHTML}
+
+      <details class="all-headers">
+        <summary>📄 All Headers (${headerOrder.length} fields)</summary>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Header Field</th><th>Value</th></tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </details>
+    `;
+
+    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
